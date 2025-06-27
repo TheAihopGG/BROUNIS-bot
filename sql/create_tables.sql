@@ -1,8 +1,7 @@
 CREATE TABLE IF NOT EXISTS report_tickets (
     id INTEGER PRIMARY KEY,
-    channel_id INTEGER,
+    channel_id INTEGER UNIQUE,
     user_discord_id INTEGER,
-    target_discord_id INTEGER,
     report_message VARCHAR(200)
 );
 CREATE TABLE IF NOT EXISTS report_ticket_members (
