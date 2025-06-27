@@ -1,11 +1,15 @@
-from aiosqlite import connect as db_connect
+from sqlite3 import connect as db_connect
 
+from core.logger import logger
 from core.config import DATABASE_FILENAME
 
 
-async def create_tables() -> None:
-    async with db_connect(DATABASE_FILENAME) as conn:
-        async with conn.cursor() as cur:
-            await cur.executescript(open("./sql/create_tables.sql").read())
+def create_tables() -> None:
+    with db_connect(DATABASE_FILENAME) as conn:
+        cur = conn.cursor()
+        cur.executescript(open("./sql/create_tables.sql").read())
 
-        await conn.commit()
+        conn.commit()
+        cur.close()
+
+    logger.info("Database tables created")

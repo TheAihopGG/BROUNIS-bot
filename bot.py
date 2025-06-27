@@ -1,6 +1,3 @@
-from asyncio import run as asyncio_run
-from datetime import datetime
-from disnake import Color, Embed, MessageInteraction
 from disnake.ext import commands
 
 from core.logger import logger
@@ -10,7 +7,7 @@ from core.database import create_tables
 bot = commands.InteractionBot()
 bot.load_extensions("cogs")
 
-asyncio_run(create_tables())
+create_tables()
 
 
 @bot.event
