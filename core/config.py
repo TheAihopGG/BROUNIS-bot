@@ -8,3 +8,4 @@ ENV_PATH = BASE_DIR / "core/.env"
 assert load_dotenv(ENV_PATH), f"env config is not exists"
 
 BOT_TOKEN = getenv("BOT_TOKEN")
+DATABASE_FILENAME = BASE_DIR / "database.db"
