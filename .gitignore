@@ -2,4 +2,5 @@ __pycache__
 .mypy_cache
 .env
 .venv
+*.log
 database.db
