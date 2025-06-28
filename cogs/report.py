@@ -178,7 +178,7 @@ class ReportCog(commands.Cog):
         self.bot = bot
 
     @commands.slash_command(name="report_member", description="Подать жалобу на участника и создать репорт-тикет")
-    async def report(
+    async def report_member(
         self,
         inter: AppCmdInter,
         target_member: Member,
