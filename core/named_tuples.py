@@ -17,3 +17,9 @@ class ReportTicketMember(NamedTuple):
 class ReportTicketModeratorRole(NamedTuple):
     id: int
     role_id: int
+
+
+class GuildSettings(NamedTuple):
+    id: int
+    guild_id: int
+    report_tickets_category_id: int
