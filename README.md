@@ -23,7 +23,7 @@
 
 /report_member `target_member`: User `target_has_access_ticket_channel`: bool
 
-## Параметры
+#### Параметры
 
 - `target_member`
 
@@ -40,7 +40,7 @@
 
 /add_member_to_rp_ticket `target_member`: Member
 
-## Параметры
+#### Параметры
 
 - `target_member`
 
@@ -53,7 +53,7 @@
 
 /remove_member_from_ticket `target_member`: Member
 
-## Параметры
+#### Параметры
 
 - `target_member`
 
