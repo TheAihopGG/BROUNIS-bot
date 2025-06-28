@@ -98,8 +98,18 @@
 
 - `role` Роль в дискорде, которая будет удалена
 
-### /ger_rp_ticket_moder_roles
+### /get_rp_ticket_moder_roles
 
 Отправляет список ролей модераторов репорт-тикетов
 
-/ger_rp_ticket_moder_roles
+/get_rp_ticket_moder_roles
+
+### /set_rp_ticket_category
+
+Устанавливает категорию как категорию для репорт-тикетов
+
+/set_rp_ticket_category `category`: CategoryChannel
+
+##### Параметры
+
+- `category` Категория, которая будет установлена как категория для репорт-тикетов
