@@ -1,17 +1,5 @@
 from typing import TypedDict
-from disnake import (
-    Guild,
-    Member,
-    Embed,
-    Role,
-    TextInputStyle,
-    ModalInteraction,
-    MessageInteraction,
-    AppCmdInter,
-    TextChannel,
-    ButtonStyle,
-    Color,
-)
+from disnake import Guild, Member, Embed, Role, TextInputStyle, ModalInteraction, MessageInteraction, AppCmdInter, TextChannel, ButtonStyle, Color, CategoryChannel
 from disnake.ui import (
     Modal,
     TextInput,
@@ -27,6 +15,7 @@ from core.named_tuples import (
     ReportTicket,
     ReportTicketMember,
     ReportTicketModeratorRole,
+    GuildSettings,
 )
 
 
@@ -58,9 +47,11 @@ class ReportUserModal(Modal):
         self,
         target: Member,
         target_has_access_to_report_ticket_channel: bool,
+        report_tickets_category_id: int,
     ):
         self.target = target
         self.target_has_access_to_report_ticket_channel = target_has_access_to_report_ticket_channel
+        self.report_tickets_category_id = report_tickets_category_id
         components = [
             TextInput(
                 label="Текст жалобы",
@@ -78,27 +69,27 @@ class ReportUserModal(Modal):
     async def callback(self, inter: ModalInteraction) -> None:
         modal_data: ReportUserModal.ModalTextValues = inter.text_values
         report_ticket_author = inter.author
-        # закрыть окно
-        await inter.response.defer()
-        # создать канал для тикета
-        report_tickets_category = await inter.guild.fetch_channel(REPORT_TICKETS_CATEGORY_ID)
-        report_ticket_channel: TextChannel = await report_tickets_category.create_text_channel(
-            name=f"report-{report_ticket_author.name}",
-            topic=f"Жалоба на {self.target.name}",
-            reason=f"Жалоба на {self.target.id} от {report_ticket_author.id}",
-        )
-        # настроить права канала
-        await report_ticket_channel.set_permissions(
-            target=inter.guild.default_role,
-            view_channel=False,
-        )
-        await report_ticket_channel.set_permissions(
-            target=report_ticket_author,
-            view_channel=True,
-        )
-        # выполняем действия с базой данных
+
         with db_connect(DATABASE_FILENAME) as conn:
             cur = conn.cursor()
+            # закрыть окно
+            await inter.response.defer()
+            # создать канал для тикета
+            report_tickets_category = await inter.guild.fetch_channel(self.report_tickets_category_id)
+            report_ticket_channel: TextChannel = await report_tickets_category.create_text_channel(
+                name=f"report-{report_ticket_author.name}",
+                topic=f"Жалоба на {self.target.name}",
+                reason=f"Жалоба на {self.target.id} от {report_ticket_author.id}",
+            )
+            # настроить права канала
+            await report_ticket_channel.set_permissions(
+                target=inter.guild.default_role,
+                view_channel=False,
+            )
+            await report_ticket_channel.set_permissions(
+                target=report_ticket_author,
+                view_channel=True,
+            )
             # создаём запись в report_tickets
             result = cur.execute(
                 "INSERT INTO report_tickets (channel_id, user_discord_id, report_message) VALUES (?, ?, ?)",
@@ -183,12 +174,38 @@ class ReportCog(commands.Cog):
         target_member: Member,
         target_has_access_ticket_channel: bool = commands.Param(True, description="Будет ли обвиняемый участник присутствовать в репорт-тикете?"),
     ) -> None:
-        await inter.response.send_modal(
-            ReportUserModal(
-                target=target_member,
-                target_has_access_to_report_ticket_channel=target_has_access_ticket_channel,
-            )
-        )
+        with db_connect(DATABASE_FILENAME) as conn:
+            cur = conn.cursor()
+            if guild_settings := await CRUD.get_guild_settings(cur, guild_id=inter.guild_id):
+                if report_tickets_category_id := guild_settings.report_tickets_category_id:
+                    await inter.response.send_modal(
+                        ReportUserModal(
+                            target=target_member,
+                            target_has_access_to_report_ticket_channel=target_has_access_ticket_channel,
+                            report_tickets_category_id=report_tickets_category_id,
+                        )
+                    )
+                else:
+                    await inter.response.send_message(
+                        embed=Embed(
+                            title="Ошибка",
+                            description="Параметр `report_tickets_category_id` не задан в настройках сервера. Установите его с помощью команды /set_rp_ticket_category",
+                            color=Color.red(),
+                            timestamp=datetime.now(),
+                        ),
+                        ephemeral=True,
+                    )
+            else:
+                await inter.response.send_message(
+                    embed=Embed(
+                        title="Ошибка",
+                        description="Параметр `report_tickets_category_id` не задан в настройках сервера. Установите его с помощью команды /set_rp_ticket_category",
+                        color=Color.red(),
+                        timestamp=datetime.now(),
+                    ),
+                    ephemeral=True,
+                )
+            cur.close()
 
     @commands.slash_command(name="add_member_to_rp_ticket", description="Добавить участника в репорт-тикет")
     async def add_member_to_report_ticket(
@@ -462,7 +479,7 @@ class ReportCog(commands.Cog):
             )
 
     @commands.slash_command(name="get_rp_ticket_moder_roles", description="Получить список модераторов репорт-тикетов")
-    async def ger_rp_ticket_moder_roles(self, inter: AppCmdInter) -> None:
+    async def get_rp_ticket_moder_roles(self, inter: AppCmdInter) -> None:
         if inter.author.guild_permissions.administrator:
             with db_connect(DATABASE_FILENAME) as conn:
                 cur = conn.cursor()
@@ -484,6 +501,38 @@ class ReportCog(commands.Cog):
                         ),
                     )
                 cur.close()
+        else:
+            await inter.response.send_message(
+                embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
+                ephemeral=True,
+            )
+
+    @commands.slash_command(name="set_rp_ticket_category", description="Устанавливает категорию как категорию для репорт-тикетов")
+    async def set_rp_ticket_category(
+        self,
+        inter: AppCmdInter,
+        category: CategoryChannel,
+    ) -> None:
+        if inter.author.guild_permissions.administrator:
+            with db_connect(DATABASE_FILENAME) as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT OR REPLACE INTO guild_settings (guild_id, report_tickets_category_id) VALUES (?, ?)",
+                    [
+                        inter.guild_id,
+                        category.id,
+                    ],
+                )
+                conn.commit()
+                cur.close()
+                await inter.response.send_message(
+                    embed=Embed(
+                        title="Категория была успешно установлена",
+                        color=Color.green(),
+                        timestamp=datetime.now(),
+                    ),
+                    ephemeral=True,
+                )
         else:
             await inter.response.send_message(
                 embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
@@ -615,6 +664,19 @@ class CRUD:
         cur.execute("SELECT * FROM report_ticket_moderator_roles")
         results = cur.fetchall()
         return list(map(ReportTicketModeratorRole._make, results))
+
+    @staticmethod
+    async def get_guild_settings(cur: Cursor, *, guild_id: int) -> GuildSettings | None:
+        cur.execute(
+            "SELECT * FROM guild_settings WHERE guild_id = ?",
+            [
+                guild_id,
+            ],
+        )
+        if result := cur.fetchone():
+            return GuildSettings._make(result)
+        else:
+            return None
 
 
 class Utils:
