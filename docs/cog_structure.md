@@ -15,6 +15,9 @@ class CRUD:
 class Utils:
     ...
 
+class Embeds:
+    ...
+
 def setup(bot: commands.InteractionBot) -> None:
     bot.add_cog(ExampleCog(bot))
 ```
@@ -36,6 +39,10 @@ def setup(bot: commands.InteractionBot) -> None:
 ### class `Utils`
 
 Содержит вспомогательные методы
+
+### class `Embeds`
+
+Содержит часто используемые эмбеды
 
 ### function `setup`
 
