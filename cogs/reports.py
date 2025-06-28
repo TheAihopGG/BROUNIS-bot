@@ -10,7 +10,6 @@ from disnake import (
     AppCmdInter,
     TextChannel,
     ButtonStyle,
-    Permissions,
     Color,
 )
 from disnake.ui import (
@@ -29,11 +28,6 @@ from core.named_tuples import (
     ReportTicketMember,
     ReportTicketModeratorRole,
 )
-
-REPORT_TICKETS_CATEGORY_ID = 1388095067629158462
-"""ID категории в которой будут создаваться тикеты"""
-REPORT_TICKETS_ADMINISTRATOR_ROLE_IDS: list[int] = [1388107221996408842]
-"""Роли, какие нужно будет упомянуть, когда приходит новая жалоба"""
 
 
 class Embeds:
