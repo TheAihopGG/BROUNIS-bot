@@ -208,7 +208,7 @@ class ReportCog(commands.Cog):
                 channel_id=inter.channel_id,
             ):
                 # проверяем права
-                if self.is_report_ticket_administrator(member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
+                if Utils.is_report_ticket_administrator(member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
                     # добавляем участника в тикет
                     if await CRUD.add_report_ticket_member(
                         cur,
@@ -257,7 +257,7 @@ class ReportCog(commands.Cog):
             # получаем report_ticket
             if report_ticket := await CRUD.get_report_ticket(cur, channel_id=inter.channel_id):
                 # проверяем права
-                if self.is_report_ticket_administrator(member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
+                if Utils.is_report_ticket_administrator(member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
                     if target_member.id != report_ticket.user_discord_id:
                         if await CRUD.remove_report_ticket_member(
                             cur,
@@ -352,7 +352,7 @@ class ReportCog(commands.Cog):
 
     @commands.slash_command(name="close_report_ticket", description="Закрывает репорт-тикет")
     async def close_report_ticket(self, inter: AppCmdInter) -> None:
-        if self.is_report_ticket_administrator(member=inter.author, guild=inter.guild):
+        if Utils.is_report_ticket_administrator(member=inter.author, guild=inter.guild):
             with db_connect(DATABASE_FILENAME) as conn:
                 cur = conn.cursor()
                 if await CRUD.get_report_ticket(cur, channel_id=inter.channel_id):
@@ -387,7 +387,7 @@ class ReportCog(commands.Cog):
         component_custom_id: ComponentCustomIds = inter.component.custom_id
         match component_custom_id:
             case ComponentCustomIds.CONFIRM_CLOSE_REPORT_TICKET:
-                if self.is_report_ticket_administrator(member=inter.author, guild=inter.guild):
+                if Utils.is_report_ticket_administrator(member=inter.author, guild=inter.guild):
                     await inter.channel.delete(reason=f"Тикет закрыт (by {inter.author.id})")
                 else:
                     await inter.response.send_message(
@@ -395,7 +395,7 @@ class ReportCog(commands.Cog):
                         ephemeral=True,
                     )
             case ComponentCustomIds.CLOSE_REPORT_TICKET:
-                if self.is_report_ticket_administrator(member=inter.author, guild=inter.guild):
+                if Utils.is_report_ticket_administrator(member=inter.author, guild=inter.guild):
                     await inter.response.send_message(
                         embed=Embed(
                             title="Вы уверены что хотите закрыть тикет?",
@@ -416,10 +416,6 @@ class ReportCog(commands.Cog):
                         embed=NOT_ENOUGH_PERMISSIONS_EMBED,
                         ephemeral=True,
                     )
-
-    def is_report_ticket_administrator(self, member: Member, guild: Guild) -> bool:
-        """Вернёт True если пользователь имеет хотя бы одну роль из ролей администраторов жалоб"""
-        return any([guild.get_role(role_id) in member.roles for role_id in REPORT_TICKETS_ADMINISTRATOR_ROLE_IDS])
 
 
 class CRUD:
@@ -502,6 +498,20 @@ class CRUD:
             return ReportTicket._make(result)
         else:
             return None
+
+
+class Utils:
+    @staticmethod
+    def is_report_ticket_administrator(*, member: Member, guild: Guild) -> bool:
+        """
+        Вернёт True если пользователь имеет хотя бы одну роль из ролей администраторов жалоб
+
+        :param member:
+        Участник, роли которого которого нужно проверить
+        :param guild:
+        Сервер, на котором находится участник
+        """
+        return any([guild.get_role(role_id) in member.roles for role_id in REPORT_TICKETS_ADMINISTRATOR_ROLE_IDS])
 
 
 def setup(bot: commands.InteractionBot) -> None:
