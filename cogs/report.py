@@ -30,26 +30,23 @@ REPORT_TICKETS_CATEGORY_ID = 1388095067629158462
 REPORT_TICKETS_ADMINISTRATOR_ROLE_IDS: list[int] = [1388107221996408842]
 """Роли, какие нужно будет упомянуть, когда приходит новая жалоба"""
 
-NOT_ENOUGH_PERMISSIONS_EMBED = Embed(
-    title="Недостаточно прав",
-    color=Color.red(),
-    timestamp=datetime.now(),
-)
-UNEXPECTED_ERROR_EMBED = Embed(
-    title="Ошибка программы",
-    color=Color.red(),
-    timestamp=datetime.now(),
-)
-THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED = Embed(
-    title="Этот канал не является тикетом",
-    color=Color.red(),
-    timestamp=datetime.now(),
-)
-REPORT_TICKET_WAS_NOT_FOUND = Embed(
-    title="Тикет не найден",
-    color=Color.red(),
-    timestamp=datetime.now(),
-)
+
+class Embeds:
+    NOT_ENOUGH_PERMISSIONS_EMBED = lambda: Embed(
+        title="Недостаточно прав",
+        color=Color.red(),
+        timestamp=datetime.now(),
+    )
+    UNEXPECTED_ERROR_EMBED = lambda: Embed(
+        title="Ошибка программы",
+        color=Color.red(),
+        timestamp=datetime.now(),
+    )
+    THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED = lambda: Embed(
+        title="Этот канал не является тикетом",
+        color=Color.red(),
+        timestamp=datetime.now(),
+    )
 
 
 class ComponentCustomIds(StrEnum):
@@ -171,9 +168,9 @@ class ReportUserModal(Modal):
                         ),
                     )
                 else:
-                    await inter.response.send_message(embed=UNEXPECTED_ERROR_EMBED)
+                    await inter.response.send_message(embed=Embeds.UNEXPECTED_ERROR_EMBED())
             else:
-                await inter.response.send_message(embed=UNEXPECTED_ERROR_EMBED)
+                await inter.response.send_message(embed=Embeds.UNEXPECTED_ERROR_EMBED())
 
 
 class ReportCog(commands.Cog):
@@ -237,12 +234,12 @@ class ReportCog(commands.Cog):
                         )
                 else:
                     await inter.response.send_message(
-                        embed=NOT_ENOUGH_PERMISSIONS_EMBED,
+                        embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
                         ephemeral=True,
                     )
             else:
                 await inter.response.send_message(
-                    embed=THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED,
+                    embed=Embeds.THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED(),
                     ephemeral=True,
                 )
 
@@ -294,12 +291,12 @@ class ReportCog(commands.Cog):
                         )
                 else:
                     await inter.response.send_message(
-                        embed=NOT_ENOUGH_PERMISSIONS_EMBED,
+                        embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
                         ephemeral=True,
                     )
             else:
                 await inter.response.send_message(
-                    embed=THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED,
+                    embed=Embeds.THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED(),
                     ephemeral=True,
                 )
 
@@ -346,7 +343,7 @@ class ReportCog(commands.Cog):
                     )
             else:
                 await inter.response.send_message(
-                    embed=THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED,
+                    embed=Embeds.THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED(),
                     ephemeral=True,
                 )
 
@@ -373,12 +370,12 @@ class ReportCog(commands.Cog):
                     )
                 else:
                     await inter.response.send_message(
-                        embed=THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED,
+                        embed=Embeds.THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED(),
                         ephemeral=True,
                     )
         else:
             await inter.response.send_message(
-                embed=NOT_ENOUGH_PERMISSIONS_EMBED,
+                embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
                 ephemeral=True,
             )
 
@@ -391,7 +388,7 @@ class ReportCog(commands.Cog):
                     await inter.channel.delete(reason=f"Тикет закрыт (by {inter.author.id})")
                 else:
                     await inter.response.send_message(
-                        embed=NOT_ENOUGH_PERMISSIONS_EMBED,
+                        embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
                         ephemeral=True,
                     )
             case ComponentCustomIds.CLOSE_REPORT_TICKET:
@@ -413,7 +410,7 @@ class ReportCog(commands.Cog):
                     )
                 else:
                     await inter.response.send_message(
-                        embed=NOT_ENOUGH_PERMISSIONS_EMBED,
+                        embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
                         ephemeral=True,
                     )
 
