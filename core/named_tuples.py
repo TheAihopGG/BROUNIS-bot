@@ -12,3 +12,8 @@ class ReportTicketMember(NamedTuple):
     id: int
     user_discord_id: int
     report_ticket_id: int
+
+
+class ReportTicketModeratorRole(NamedTuple):
+    id: int
+    role_id: int

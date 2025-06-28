@@ -10,5 +10,10 @@ CREATE TABLE IF NOT EXISTS report_ticket_members (
     report_ticket_id INTEGER,
     FOREIGN KEY (report_ticket_id) REFERENCES report_tickets(id)
 );
+CREATE TABLE IF NOT EXISTS report_ticket_moderator_roles (
+    id INTEGER PRIMARY KEY,
+    role_id INTEGER
+);
 CREATE INDEX IF NOT EXISTS report_ticket_id_index ON report_ticket_members(id);
 CREATE INDEX IF NOT EXISTS report_ticket_member_id_index ON report_ticket_members(id);
+CREATE INDEX IF NOT EXISTS report_ticket_moderator_role_id_index ON report_ticket_moderator_roles(id);
