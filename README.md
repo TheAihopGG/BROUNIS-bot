@@ -113,3 +113,63 @@
 ##### Параметры
 
 - `category` Категория, которая будет установлена как категория для репорт-тикетов
+
+### /start_event
+
+Запускает ивент
+
+/start_event
+
+### /restart_event
+
+Перезапускает текущий ивент
+
+/restart_event
+
+### /stop_event
+
+Останавливает ивент
+
+/stop_event
+
+### /enable_events
+
+Включает ивенты на сервере
+
+/enable_events
+
+### /disable_events
+
+Выключает ивенты на сервере
+
+/disable_events
+
+### /set_events_delay
+
+Устанавливает задержу между ивентами
+
+/set_events_delay `delay_in_minutes`: int
+
+### /set_events_news_channel
+
+Устанавливает выбранный канал как канал для уведомлений об ивентах
+
+/set_events_news_channel `channel`: TextChannel
+
+#### Параметры
+
+- `channel` Канал, который будет установлена как канал для уведомлений об ивентах
+
+### /set_events_warning_message
+
+Устанавливает выбранный канал как канал для уведомлений об ивентах
+
+/set_events_news_channel `message_text`: TextChannel `event_name`: str `apply_to_all_events`: bool
+
+#### Параметры
+
+- `message_text` Сообщение
+
+- `event_name` Название ивента, для которого будет применено это сообщение (опционально). Если не указан, будет использоваться параметр `apply_to_all_events`
+
+- `apply_to_all_events` Если true, сообщение применится ко всем ивентам (опционально). По умолчанию false
