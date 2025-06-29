@@ -291,7 +291,7 @@ class ReportCog(commands.Cog):
                     else:
                         await inter.response.send_message(
                             embed=Embed(
-                                title="Вы являетесь создателем тикета, и не можете себя удалить",
+                                title="Пользователь является создателем тикета, и вы не можете его удалить",
                                 color=Color.red(),
                                 timestamp=datetime.now(),
                             ),
