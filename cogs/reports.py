@@ -7,7 +7,7 @@ from disnake.ui import (
 )
 from disnake.ext import commands
 from datetime import datetime
-from sqlite3 import connect as db_connect, Cursor
+from aiosqlite import connect as db_connect, Connection
 from enum import auto, StrEnum
 
 from core.config import DATABASE_FILENAME
@@ -70,8 +70,7 @@ class ReportUserModal(Modal):
         modal_data: ReportUserModal.ModalTextValues = inter.text_values
         report_ticket_author = inter.author
 
-        with db_connect(DATABASE_FILENAME) as conn:
-            cur = conn.cursor()
+        async with db_connect(DATABASE_FILENAME) as conn:
             # закрыть окно
             await inter.response.defer()
             # создать канал для тикета
@@ -91,7 +90,7 @@ class ReportUserModal(Modal):
                 view_channel=True,
             )
             # создаём запись в report_tickets
-            result = cur.execute(
+            result = await conn.execute(
                 "INSERT INTO report_tickets (channel_id, user_discord_id, report_message) VALUES (?, ?, ?)",
                 [
                     report_ticket_channel.id,
@@ -99,18 +98,18 @@ class ReportUserModal(Modal):
                     modal_data["report_text"],
                 ],
             )
-            conn.commit()
+            await conn.commit()
             if report_ticket_id := result.lastrowid:  # ID созданной записи
                 if result.rowcount:
                     # если пользователь хочет, чтобы target присутствовал в чате, настроить для него права
                     if self.target_has_access_to_report_ticket_channel:
                         await CRUD.add_report_ticket_member(
-                            cur,
+                            conn,
                             report_ticket_member=self.target,
                             report_ticket_channel=report_ticket_channel,
                             report_ticket_id=report_ticket_id,
                         )
-                        conn.commit()
+                        await conn.commit()
                     # отправить сообщение с кнопкой в тикет
                     await (
                         await report_ticket_channel.send(
@@ -138,7 +137,7 @@ class ReportUserModal(Modal):
                     member_ids_to_mention: list[int] = [report_ticket_author.id, self.target.id] if self.target_has_access_to_report_ticket_channel else [report_ticket_author.id]
                     await report_ticket_channel.send(
                         "".join(
-                            [f"<@&{report_ticket_moder_role.role_id}>" for report_ticket_moder_role in await CRUD.get_report_ticket_moder_roles(cur)],
+                            [f"<@&{report_ticket_moder_role.role_id}>" for report_ticket_moder_role in await CRUD.get_report_ticket_moder_roles(conn)],
                         )
                         + "".join(
                             [f"<@{member_id}>" for member_id in member_ids_to_mention],
@@ -156,7 +155,6 @@ class ReportUserModal(Modal):
                             inline=True,
                         ),
                     )
-                    cur.close()
                 else:
                     await inter.response.send_message(embed=Embeds.UNEXPECTED_ERROR_EMBED())
             else:
@@ -174,9 +172,8 @@ class ReportCog(commands.Cog):
         target_member: Member,
         target_has_access_ticket_channel: bool = commands.Param(True, description="Будет ли обвиняемый участник присутствовать в репорт-тикете?"),
     ) -> None:
-        with db_connect(DATABASE_FILENAME) as conn:
-            cur = conn.cursor()
-            if guild_settings := await CRUD.get_guild_settings(cur, guild_id=inter.guild_id):
+        async with db_connect(DATABASE_FILENAME) as conn:
+            if guild_settings := await CRUD.get_guild_settings(conn, guild_id=inter.guild_id):
                 if report_tickets_category_id := guild_settings.report_tickets_category_id:
                     await inter.response.send_modal(
                         ReportUserModal(
@@ -205,7 +202,6 @@ class ReportCog(commands.Cog):
                     ),
                     ephemeral=True,
                 )
-            cur.close()
 
     @commands.slash_command(name="add_member_to_rp_ticket", description="Добавить участника в репорт-тикет")
     async def add_member_to_report_ticket(
@@ -213,24 +209,22 @@ class ReportCog(commands.Cog):
         inter: AppCmdInter,
         target_member: Member,
     ) -> None:
-        with db_connect(DATABASE_FILENAME) as conn:
-            cur = conn.cursor()
+        async with db_connect(DATABASE_FILENAME) as conn:
             # получаем report_ticket
             if report_ticket := await CRUD.get_report_ticket(
-                cur,
+                conn,
                 channel_id=inter.channel_id,
             ):
                 # проверяем права
-                if await Utils.is_report_ticket_administrator(cur, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
+                if await Utils.is_report_ticket_administrator(conn, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
                     # добавляем участника в тикет
                     if await CRUD.add_report_ticket_member(
-                        cur,
+                        conn,
                         report_ticket_member=target_member,
                         report_ticket_channel=inter.channel,
                         report_ticket_id=report_ticket.id,
                     ):
-                        conn.commit()
-                        cur.close()
+                        await conn.commit()
 
                         await inter.response.send_message(
                             embed=Embed(
@@ -265,21 +259,19 @@ class ReportCog(commands.Cog):
         inter: AppCmdInter,
         target_member: Member,
     ) -> None:
-        with db_connect(DATABASE_FILENAME) as conn:
-            cur = conn.cursor()
+        async with db_connect(DATABASE_FILENAME) as conn:
             # получаем report_ticket
-            if report_ticket := await CRUD.get_report_ticket(cur, channel_id=inter.channel_id):
+            if report_ticket := await CRUD.get_report_ticket(conn, channel_id=inter.channel_id):
                 # проверяем права
-                if await Utils.is_report_ticket_administrator(cur, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
+                if await Utils.is_report_ticket_administrator(conn, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
                     if target_member.id != report_ticket.user_discord_id:
                         if await CRUD.remove_report_ticket_member(
-                            cur,
+                            conn,
                             report_ticket_member=target_member,
                             report_ticket_channel=inter.channel,
                             report_ticket_id=report_ticket.id,
                         ):
-                            conn.commit()
-                            cur.close()
+                            await conn.commit()
                             await inter.response.send_message(
                                 embed=Embed(
                                     title="Участник был удалён из тикета",
@@ -321,17 +313,16 @@ class ReportCog(commands.Cog):
         self,
         inter: AppCmdInter,
     ) -> None:
-        with db_connect(DATABASE_FILENAME) as conn:
-            cur = conn.cursor()
-            if report_ticket := await CRUD.get_report_ticket(cur, channel_id=inter.channel_id):
-                cur.execute(
+        async with db_connect(DATABASE_FILENAME) as conn:
+            if report_ticket := await CRUD.get_report_ticket(conn, channel_id=inter.channel_id):
+                result = await conn.execute(
                     "SELECT * FROM report_ticket_members WHERE report_ticket_id = ?",
                     [
                         report_ticket.id,
                     ],
                 )
-                if result := cur.fetchall():
-                    if report_ticket_members := map(ReportTicketMember._make, result):
+                if fetchall_result := await result.fetchall():
+                    if report_ticket_members := map(ReportTicketMember._make, fetchall_result):
                         await inter.response.send_message(
                             embed=Embed(
                                 title="Список участников",
@@ -365,33 +356,29 @@ class ReportCog(commands.Cog):
 
     @commands.slash_command(name="close_report_ticket", description="Закрывает репорт-тикет")
     async def close_report_ticket(self, inter: AppCmdInter) -> None:
-        with db_connect(DATABASE_FILENAME) as conn:
-            cur = conn.cursor()
-            if await Utils.is_report_ticket_administrator(cur, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
-                with db_connect(DATABASE_FILENAME) as conn:
-                    cur = conn.cursor()
-                    if await CRUD.get_report_ticket(cur, channel_id=inter.channel_id):
-                        cur.close()
-                        await inter.response.send_message(
-                            embed=Embed(
-                                title="Вы уверены что хотите закрыть тикет?",
-                                timestamp=datetime.now(),
-                                color=Color.yellow(),
-                            ),
-                            components=[
-                                Button(
-                                    label="Да",
-                                    style=ButtonStyle.danger,
-                                    custom_id=ComponentCustomIds.CONFIRM_CLOSE_REPORT_TICKET,
-                                )
-                            ],
-                            ephemeral=True,
-                        )
-                    else:
-                        await inter.response.send_message(
-                            embed=Embeds.THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED(),
-                            ephemeral=True,
-                        )
+        async with db_connect(DATABASE_FILENAME) as conn:
+            if await Utils.is_report_ticket_administrator(conn, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
+                if await CRUD.get_report_ticket(conn, channel_id=inter.channel_id):
+                    await inter.response.send_message(
+                        embed=Embed(
+                            title="Вы уверены что хотите закрыть тикет?",
+                            timestamp=datetime.now(),
+                            color=Color.yellow(),
+                        ),
+                        components=[
+                            Button(
+                                label="Да",
+                                style=ButtonStyle.danger,
+                                custom_id=ComponentCustomIds.CONFIRM_CLOSE_REPORT_TICKET,
+                            )
+                        ],
+                        ephemeral=True,
+                    )
+                else:
+                    await inter.response.send_message(
+                        embed=Embeds.THE_CHANNEL_IS_NOT_REPORT_TICKET_EMBED(),
+                        ephemeral=True,
+                    )
             else:
                 await inter.response.send_message(
                     embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
@@ -405,16 +392,14 @@ class ReportCog(commands.Cog):
         role: Role,
     ) -> None:
         if inter.author.guild_permissions.administrator:
-            with db_connect(DATABASE_FILENAME) as conn:
-                cur = conn.cursor()
-                result = cur.execute(
+            async with db_connect(DATABASE_FILENAME) as conn:
+                result = await conn.execute(
                     "INSERT OR REPLACE INTO report_ticket_moderator_roles (role_id) VALUES (?)",
                     [
                         role.id,
                     ],
                 )
-                conn.commit()
-                cur.close()
+                await conn.commit()
                 if result.rowcount:
                     await inter.response.send_message(
                         embed=Embed(
@@ -445,16 +430,14 @@ class ReportCog(commands.Cog):
         role: Role,
     ) -> None:
         if inter.author.guild_permissions.administrator:
-            with db_connect(DATABASE_FILENAME) as conn:
-                cur = conn.cursor()
-                result = cur.execute(
+            async with db_connect(DATABASE_FILENAME) as conn:
+                result = await conn.execute(
                     "DELETE FROM report_ticket_moderator_roles WHERE role_id = ?",
                     [
                         role.id,
                     ],
                 )
-                conn.commit()
-                cur.close()
+                await conn.commit()
                 if result.rowcount:
                     await inter.response.send_message(
                         embed=Embed(
@@ -481,9 +464,8 @@ class ReportCog(commands.Cog):
     @commands.slash_command(name="get_rp_ticket_moder_roles", description="Получить список модераторов репорт-тикетов")
     async def get_rp_ticket_moder_roles(self, inter: AppCmdInter) -> None:
         if inter.author.guild_permissions.administrator:
-            with db_connect(DATABASE_FILENAME) as conn:
-                cur = conn.cursor()
-                if report_ticket_moder_roles := await CRUD.get_report_ticket_moder_roles(cur):
+            async with db_connect(DATABASE_FILENAME) as conn:
+                if report_ticket_moder_roles := await CRUD.get_report_ticket_moder_roles(conn):
                     await inter.response.send_message(
                         embed=Embed(
                             title="Список ролей модераторов репорт-тикетов",
@@ -500,7 +482,6 @@ class ReportCog(commands.Cog):
                             color=Color.yellow(),
                         ),
                     )
-                cur.close()
         else:
             await inter.response.send_message(
                 embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
@@ -514,17 +495,15 @@ class ReportCog(commands.Cog):
         category: CategoryChannel,
     ) -> None:
         if inter.author.guild_permissions.administrator:
-            with db_connect(DATABASE_FILENAME) as conn:
-                cur = conn.cursor()
-                cur.execute(
+            async with db_connect(DATABASE_FILENAME) as conn:
+                await conn.execute(
                     "INSERT OR REPLACE INTO guild_settings (guild_id, report_tickets_category_id) VALUES (?, ?)",
                     [
                         inter.guild_id,
                         category.id,
                     ],
                 )
-                conn.commit()
-                cur.close()
+                await conn.commit()
                 await inter.response.send_message(
                     embed=Embed(
                         title="Категория была успешно установлена",
@@ -542,11 +521,17 @@ class ReportCog(commands.Cog):
     @commands.Cog.listener("on_button_click")
     async def buttons_listener(self, inter: MessageInteraction) -> None:
         component_custom_id: ComponentCustomIds = inter.component.custom_id
-        with db_connect(DATABASE_FILENAME) as conn:
-            cur = conn.cursor()
+        async with db_connect(DATABASE_FILENAME) as conn:
             match component_custom_id:
                 case ComponentCustomIds.CONFIRM_CLOSE_REPORT_TICKET:
-                    if await Utils.is_report_ticket_administrator(cur, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
+                    if (
+                        await Utils.is_report_ticket_administrator(
+                            conn,
+                            member=inter.author,
+                            guild=inter.guild,
+                        )
+                        or inter.author.guild_permissions.administrator
+                    ):
                         await inter.channel.delete(reason=f"Тикет закрыт (by {inter.author.id})")
                     else:
                         await inter.response.send_message(
@@ -554,7 +539,14 @@ class ReportCog(commands.Cog):
                             ephemeral=True,
                         )
                 case ComponentCustomIds.CLOSE_REPORT_TICKET:
-                    if await Utils.is_report_ticket_administrator(cur, member=inter.author, guild=inter.guild) or inter.author.guild_permissions.administrator:
+                    if (
+                        await Utils.is_report_ticket_administrator(
+                            conn,
+                            member=inter.author,
+                            guild=inter.guild,
+                        )
+                        or inter.author.guild_permissions.administrator
+                    ):
                         await inter.response.send_message(
                             embed=Embed(
                                 title="Вы уверены что хотите закрыть тикет?",
@@ -575,13 +567,12 @@ class ReportCog(commands.Cog):
                             embed=Embeds.NOT_ENOUGH_PERMISSIONS_EMBED(),
                             ephemeral=True,
                         )
-            cur.close()
 
 
 class CRUD:
     @staticmethod
     async def add_report_ticket_member(
-        cur: Cursor,
+        conn: Connection,
         *,
         report_ticket_member: Member,
         report_ticket_channel: TextChannel,
@@ -603,7 +594,7 @@ class CRUD:
             target=report_ticket_member,
             view_channel=True,
         )
-        result = cur.execute(
+        result = await conn.execute(
             "INSERT OR REPLACE INTO report_ticket_members (user_discord_id, report_ticket_id) VALUES (?, ?)",
             [
                 report_ticket_member.id,
@@ -614,7 +605,7 @@ class CRUD:
 
     @staticmethod
     async def remove_report_ticket_member(
-        cur: Cursor,
+        conn: Connection,
         *,
         report_ticket_member: Member,
         report_ticket_channel: TextChannel,
@@ -636,7 +627,7 @@ class CRUD:
             target=report_ticket_member,
             view_channel=False,
         )
-        result = cur.execute(
+        result = await conn.execute(
             "DELETE FROM report_ticket_members WHERE user_discord_id = ? AND report_ticket_id = ?",
             [
                 report_ticket_member.id,
@@ -647,34 +638,34 @@ class CRUD:
         return bool(result.rowcount)
 
     @staticmethod
-    async def get_report_ticket(cur: Cursor, *, channel_id: int) -> ReportTicket | None:
-        cur.execute(
+    async def get_report_ticket(conn: Connection, *, channel_id: int) -> ReportTicket | None:
+        result = await conn.execute(
             "SELECT * FROM report_tickets WHERE channel_id = ?",
             [
                 channel_id,
             ],
         )
-        if result := cur.fetchone():
-            return ReportTicket._make(result)
+        if fetchone_result := await result.fetchone():
+            return ReportTicket._make(fetchone_result)
         else:
             return None
 
     @staticmethod
-    async def get_report_ticket_moder_roles(cur: Cursor) -> list[ReportTicketModeratorRole]:
-        cur.execute("SELECT * FROM report_ticket_moderator_roles")
-        results = cur.fetchall()
-        return list(map(ReportTicketModeratorRole._make, results))
+    async def get_report_ticket_moder_roles(conn: Connection) -> list[ReportTicketModeratorRole]:
+        result = await conn.execute("SELECT * FROM report_ticket_moderator_roles")
+        fetchall_result = await result.fetchall()
+        return list(map(ReportTicketModeratorRole._make, fetchall_result))
 
     @staticmethod
-    async def get_guild_settings(cur: Cursor, *, guild_id: int) -> GuildSettings | None:
-        cur.execute(
+    async def get_guild_settings(conn: Connection, *, guild_id: int) -> GuildSettings | None:
+        result = await conn.execute(
             "SELECT * FROM guild_settings WHERE guild_id = ?",
             [
                 guild_id,
             ],
         )
-        if result := cur.fetchone():
-            return GuildSettings._make(result)
+        if fetchone_result := await result.fetchone():
+            return GuildSettings._make(fetchone_result)
         else:
             return None
 
@@ -682,7 +673,7 @@ class CRUD:
 class Utils:
     @staticmethod
     async def is_report_ticket_administrator(
-        cur: Cursor,
+        conn: Connection,
         *,
         member: Member,
         guild: Guild,
@@ -695,7 +686,7 @@ class Utils:
         :param guild:
         Сервер, на котором находится участник
         """
-        return any([guild.get_role(report_ticket_moder_role.role_id) in member.roles for report_ticket_moder_role in await CRUD.get_report_ticket_moder_roles(cur)])
+        return any([guild.get_role(report_ticket_moder_role.role_id) in member.roles for report_ticket_moder_role in await CRUD.get_report_ticket_moder_roles(conn)])
 
 
 def setup(bot: commands.InteractionBot) -> None:
