@@ -8,16 +8,16 @@
 - [x] create command: /remove_member_from_ticket
 - [x] create command: /get_report_ticket_members
 - [x] create command: /close_ticket
-- [ ] create command: /add_rp_ticket_moder_role
-- [ ] create command: /remove_rp_ticket_moder_role
-- [ ] test and fix cog: ReportCog
-- [ ] test and fix command: /report_member
-- [ ] test and fix command: /add_member_to_rp_ticket
-- [ ] test and fix command: /remove_member_from_ticket
-- [ ] test and fix command: /get_report_ticket_members
-- [ ] test and fix command: /close_ticket
-- [ ] test and fix command: /add_rp_ticket_moder_role
-- [ ] test and fix command: /remove_rp_ticket_moder_role
+- [x] create command: /add_rp_ticket_moder_role
+- [x] create command: /remove_rp_ticket_moder_role
+- [x] test and fix cog: ReportCog
+- [x] test and fix command: /report_member
+- [x] test and fix command: /add_member_to_rp_ticket
+- [x] test and fix command: /remove_member_from_ticket
+- [x] test and fix command: /get_report_ticket_members
+- [x] test and fix command: /close_ticket
+- [x] test and fix command: /add_rp_ticket_moder_role
+- [x] test and fix command: /remove_rp_ticket_moder_role
 
 ## Использование команд
 
